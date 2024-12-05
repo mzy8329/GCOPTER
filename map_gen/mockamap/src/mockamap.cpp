@@ -19,7 +19,7 @@ optimizeMap(mocka::Maps::BasicInfo& in)
   pcl::KdTreeFLANN<pcl::PointXYZ>     kdtree;
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
-  cloud->width  = in.cloud->width;
+  cloud->width = in.cloud->width;
   cloud->height = in.cloud->height;
   cloud->points.resize(cloud->width * cloud->height);
 
@@ -39,7 +39,7 @@ optimizeMap(mocka::Maps::BasicInfo& in)
     std::vector<float> pointRadiusSquaredDistance;
 
     if (kdtree.radiusSearch(cloud->points[i], radius, pointIdxRadiusSearch,
-                            pointRadiusSquaredDistance) >= 27)
+      pointRadiusSquaredDistance) >= 27)
     {
       temp->push_back(i);
     }
@@ -47,7 +47,7 @@ optimizeMap(mocka::Maps::BasicInfo& in)
   for (int i = temp->size() - 1; i >= 0; i--)
   {
     in.cloud->points.erase(in.cloud->points.begin() +
-                           temp->at(i)); // erasing the enclosed points
+      temp->at(i)); // erasing the enclosed points
   }
   in.cloud->width -= temp->size();
 
@@ -98,13 +98,13 @@ main(int argc, char** argv)
 
   mocka::Maps::BasicInfo info;
   info.nh_private = &nh_private;
-  info.sizeX      = sizeX;
-  info.sizeY      = sizeY;
-  info.sizeZ      = sizeZ;
-  info.seed       = seed;
-  info.scale      = scale;
-  info.output     = &output;
-  info.cloud      = &cloud;
+  info.sizeX = sizeX;
+  info.sizeY = sizeY;
+  info.sizeZ = sizeZ;
+  info.seed = seed;
+  info.scale = scale;
+  info.output = &output;
+  info.cloud = &cloud;
 
   mocka::Maps map;
   map.setInfo(info);

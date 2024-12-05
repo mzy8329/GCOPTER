@@ -45,7 +45,7 @@ struct Config
     int integralIntervs;
     double relCostTol;
 
-    Config(const ros::NodeHandle &nh_priv)
+    Config(const ros::NodeHandle& nh_priv)
     {
         nh_priv.getParam("MapTopic", mapTopic);
         nh_priv.getParam("TargetTopic", targetTopic);
@@ -90,35 +90,35 @@ private:
     double trajStamp;
 
 public:
-    GlobalPlanner(const Config &conf,
-                  ros::NodeHandle &nh_)
+    GlobalPlanner(const Config& conf,
+        ros::NodeHandle& nh_)
         : config(conf),
-          nh(nh_),
-          mapInitialized(false),
-          visualizer(nh)
+        nh(nh_),
+        mapInitialized(false),
+        visualizer(nh)
     {
         const Eigen::Vector3i xyz((config.mapBound[1] - config.mapBound[0]) / config.voxelWidth,
-                                  (config.mapBound[3] - config.mapBound[2]) / config.voxelWidth,
-                                  (config.mapBound[5] - config.mapBound[4]) / config.voxelWidth);
+            (config.mapBound[3] - config.mapBound[2]) / config.voxelWidth,
+            (config.mapBound[5] - config.mapBound[4]) / config.voxelWidth);
 
         const Eigen::Vector3d offset(config.mapBound[0], config.mapBound[2], config.mapBound[4]);
 
         voxelMap = voxel_map::VoxelMap(xyz, offset, config.voxelWidth);
 
         mapSub = nh.subscribe(config.mapTopic, 1, &GlobalPlanner::mapCallBack, this,
-                              ros::TransportHints().tcpNoDelay());
+            ros::TransportHints().tcpNoDelay());
 
         targetSub = nh.subscribe(config.targetTopic, 1, &GlobalPlanner::targetCallBack, this,
-                                 ros::TransportHints().tcpNoDelay());
+            ros::TransportHints().tcpNoDelay());
     }
 
-    inline void mapCallBack(const sensor_msgs::PointCloud2::ConstPtr &msg)
+    inline void mapCallBack(const sensor_msgs::PointCloud2::ConstPtr& msg)
     {
         if (!mapInitialized)
         {
             size_t cur = 0;
             const size_t total = msg->data.size() / msg->point_step;
-            float *fdata = (float *)(&msg->data[0]);
+            float* fdata = (float*)(&msg->data[0]);
             for (size_t i = 0; i < total; i++)
             {
                 cur = msg->point_step / sizeof(float) * i;
@@ -130,8 +130,8 @@ public:
                     continue;
                 }
                 voxelMap.setOccupied(Eigen::Vector3d(fdata[cur + 0],
-                                                     fdata[cur + 1],
-                                                     fdata[cur + 2]));
+                    fdata[cur + 1],
+                    fdata[cur + 2]));
             }
 
             voxelMap.dilate(std::ceil(config.dilateRadius / voxelMap.getScale()));
@@ -144,25 +144,29 @@ public:
     {
         if (startGoal.size() == 2)
         {
+            // 用ompl中的Inform RRT*先粗搜一条轨迹
             std::vector<Eigen::Vector3d> route;
             sfc_gen::planPath<voxel_map::VoxelMap>(startGoal[0],
-                                                   startGoal[1],
-                                                   voxelMap.getOrigin(),
-                                                   voxelMap.getCorner(),
-                                                   &voxelMap, 0.01,
-                                                   route);
+                startGoal[1],
+                voxelMap.getOrigin(),
+                voxelMap.getCorner(),
+                &voxelMap, 0.01,
+                route);
             std::vector<Eigen::MatrixX4d> hPolys;
             std::vector<Eigen::Vector3d> pc;
             voxelMap.getSurf(pc);
 
+            // 获取飞行走廊
             sfc_gen::convexCover(route,
-                                 pc,
-                                 voxelMap.getOrigin(),
-                                 voxelMap.getCorner(),
-                                 7.0,
-                                 3.0,
-                                 hPolys);
+                pc,
+                voxelMap.getOrigin(),
+                voxelMap.getCorner(),
+                7.0,
+                3.0,
+                hPolys);
+            // 如果某两个不相邻的飞行走廊有重合部分，就把中间多余的corridor删掉
             sfc_gen::shortCut(hPolys);
+
 
             if (route.size() > 1)
             {
@@ -204,13 +208,13 @@ public:
                 traj.clear();
 
                 if (!gcopter.setup(config.weightT,
-                                   iniState, finState,
-                                   hPolys, INFINITY,
-                                   config.smoothingEps,
-                                   quadratureRes,
-                                   magnitudeBounds,
-                                   penaltyWeights,
-                                   physicalParams))
+                    iniState, finState,
+                    hPolys, INFINITY,
+                    config.smoothingEps,
+                    quadratureRes,
+                    magnitudeBounds,
+                    penaltyWeights,
+                    physicalParams))
                 {
                     return;
                 }
@@ -229,7 +233,7 @@ public:
         }
     }
 
-    inline void targetCallBack(const geometry_msgs::PoseStamped::ConstPtr &msg)
+    inline void targetCallBack(const geometry_msgs::PoseStamped::ConstPtr& msg)
     {
         if (mapInitialized)
         {
@@ -238,8 +242,8 @@ public:
                 startGoal.clear();
             }
             const double zGoal = config.mapBound[4] + config.dilateRadius +
-                                 fabs(msg->pose.orientation.z) *
-                                     (config.mapBound[5] - config.mapBound[4] - 2 * config.dilateRadius);
+                fabs(msg->pose.orientation.z) *
+                (config.mapBound[5] - config.mapBound[4] - 2 * config.dilateRadius);
             const Eigen::Vector3d goal(msg->pose.position.x, msg->pose.position.y, zGoal);
             if (voxelMap.query(goal) == 0)
             {
@@ -268,7 +272,7 @@ public:
 
         flatness::FlatnessMap flatmap;
         flatmap.reset(physicalParams(0), physicalParams(1), physicalParams(2),
-                      physicalParams(3), physicalParams(4), physicalParams(5));
+            physicalParams(3), physicalParams(4), physicalParams(5));
 
         if (traj.getPieceNum() > 0)
         {
@@ -280,10 +284,10 @@ public:
                 Eigen::Vector3d omg;
 
                 flatmap.forward(traj.getVel(delta),
-                                traj.getAcc(delta),
-                                traj.getJer(delta),
-                                0.0, 0.0,
-                                thr, quat, omg);
+                    traj.getAcc(delta),
+                    traj.getJer(delta),
+                    0.0, 0.0,
+                    thr, quat, omg);
                 double speed = traj.getVel(delta).norm();
                 double bodyratemag = omg.norm();
                 double tiltangle = acos(1.0 - 2.0 * (quat(1) * quat(1) + quat(2) * quat(2)));
@@ -298,13 +302,13 @@ public:
                 visualizer.bdrPub.publish(bdrMsg);
 
                 visualizer.visualizeSphere(traj.getPos(delta),
-                                           config.dilateRadius);
+                    config.dilateRadius);
             }
         }
     }
 };
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     ros::init(argc, argv, "global_planning_node");
     ros::NodeHandle nh_;

@@ -43,13 +43,13 @@ namespace sfc_gen
 {
 
     template <typename Map>
-    inline double planPath(const Eigen::Vector3d &s,
-                           const Eigen::Vector3d &g,
-                           const Eigen::Vector3d &lb,
-                           const Eigen::Vector3d &hb,
-                           const Map *mapPtr,
-                           const double &timeout,
-                           std::vector<Eigen::Vector3d> &p)
+    inline double planPath(const Eigen::Vector3d& s,
+        const Eigen::Vector3d& g,
+        const Eigen::Vector3d& lb,
+        const Eigen::Vector3d& hb,
+        const Map* mapPtr,
+        const double& timeout,
+        std::vector<Eigen::Vector3d>& p)
     {
         auto space(std::make_shared<ompl::base::RealVectorStateSpace>(3));
 
@@ -65,12 +65,12 @@ namespace sfc_gen
         auto si(std::make_shared<ompl::base::SpaceInformation>(space));
 
         si->setStateValidityChecker(
-            [&](const ompl::base::State *state)
+            [&](const ompl::base::State* state)
             {
-                const auto *pos = state->as<ompl::base::RealVectorStateSpace::StateType>();
+                const auto* pos = state->as<ompl::base::RealVectorStateSpace::StateType>();
                 const Eigen::Vector3d position(lb(0) + (*pos)[0],
-                                               lb(1) + (*pos)[1],
-                                               lb(2) + (*pos)[2]);
+                    lb(1) + (*pos)[1],
+                    lb(2) + (*pos)[2]);
                 return mapPtr->query(position) == 0;
             });
         si->setup();
@@ -101,7 +101,7 @@ namespace sfc_gen
             p.clear();
             const ompl::geometric::PathGeometric path_ =
                 ompl::geometric::PathGeometric(
-                    dynamic_cast<const ompl::geometric::PathGeometric &>(*pdef->getSolutionPath()));
+                    dynamic_cast<const ompl::geometric::PathGeometric&>(*pdef->getSolutionPath()));
             for (size_t i = 0; i < path_.getStateCount(); i++)
             {
                 const auto state = path_.getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values;
@@ -113,14 +113,14 @@ namespace sfc_gen
         return cost;
     }
 
-    inline void convexCover(const std::vector<Eigen::Vector3d> &path,
-                            const std::vector<Eigen::Vector3d> &points,
-                            const Eigen::Vector3d &lowCorner,
-                            const Eigen::Vector3d &highCorner,
-                            const double &progress,
-                            const double &range,
-                            std::vector<Eigen::MatrixX4d> &hpolys,
-                            const double eps = 1.0e-6)
+    inline void convexCover(const std::vector<Eigen::Vector3d>& path,
+        const std::vector<Eigen::Vector3d>& points,
+        const Eigen::Vector3d& lowCorner,
+        const Eigen::Vector3d& highCorner,
+        const double& progress,
+        const double& range,
+        std::vector<Eigen::MatrixX4d>& hpolys,
+        const double eps = 1.0e-6)
     {
         hpolys.clear();
         const int n = path.size();
@@ -139,6 +139,7 @@ namespace sfc_gen
         valid_pc.reserve(points.size());
         for (int i = 1; i < n;)
         {
+            // 获取原始路点之间的线段，当线段过长则截为多段
             a = b;
             if ((a - path[i]).norm() > progress)
             {
@@ -151,6 +152,7 @@ namespace sfc_gen
             }
             bs.emplace_back(b);
 
+            // 获取线段膨胀后的长方体与工作空间的交集作为考虑范围
             bd(0, 3) = -std::min(std::max(a(0), b(0)) + range, highCorner(0));
             bd(1, 3) = +std::max(std::min(a(0), b(0)) - range, lowCorner(0));
             bd(2, 3) = -std::min(std::max(a(1), b(1)) + range, highCorner(1));
@@ -158,8 +160,9 @@ namespace sfc_gen
             bd(4, 3) = -std::min(std::max(a(2), b(2)) + range, highCorner(2));
             bd(5, 3) = +std::max(std::min(a(2), b(2)) - range, lowCorner(2));
 
+            // 获得考虑范围内所有的障碍物表面点
             valid_pc.clear();
-            for (const Eigen::Vector3d &p : points)
+            for (const Eigen::Vector3d& p : points)
             {
                 if ((bd.leftCols<3>() * p + bd.rightCols<1>()).maxCoeff() < 0.0)
                 {
@@ -174,7 +177,7 @@ namespace sfc_gen
             {
                 const Eigen::Vector4d ah(a(0), a(1), a(2), 1.0);
                 if (3 <= ((hp * ah).array() > -eps).cast<int>().sum() +
-                             ((hpolys.back() * ah).array() > -eps).cast<int>().sum())
+                    ((hpolys.back() * ah).array() > -eps).cast<int>().sum())
                 {
                     firi::firi(bd, pc, a, a, gap, 1);
                     hpolys.emplace_back(gap);
@@ -185,7 +188,7 @@ namespace sfc_gen
         }
     }
 
-    inline void shortCut(std::vector<Eigen::MatrixX4d> &hpolys)
+    inline void shortCut(std::vector<Eigen::MatrixX4d>& hpolys)
     {
         std::vector<Eigen::MatrixX4d> htemp = hpolys;
         if (htemp.size() == 1)
@@ -220,7 +223,7 @@ namespace sfc_gen
                 }
             }
         }
-        for (const auto &ele : idices)
+        for (const auto& ele : idices)
         {
             hpolys.push_back(htemp[ele]);
         }

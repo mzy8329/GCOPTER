@@ -1,0 +1,12 @@
+{
+    "cSpell.words": [
+        "Eigen",
+        "gcopter",
+        "Intervs",
+        "Polytope"
+    ],
+    "files.associations": {
+        "chrono": "cpp",
+        "cmath": "cpp"
+    }
+}
