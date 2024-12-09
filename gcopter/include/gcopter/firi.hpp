@@ -42,8 +42,8 @@
 namespace firi
 {
 
-    inline void chol3d(const Eigen::Matrix3d &A,
-                       Eigen::Matrix3d &L)
+    inline void chol3d(const Eigen::Matrix3d& A,
+        Eigen::Matrix3d& L)
     {
         L(0, 0) = sqrt(A(0, 0));
         L(0, 1) = 0.0;
@@ -57,10 +57,10 @@ namespace firi
         return;
     }
 
-    inline bool smoothedL1(const double &mu,
-                           const double &x,
-                           double &f,
-                           double &df)
+    inline bool smoothedL1(const double& mu,
+        const double& x,
+        double& f,
+        double& df)
     {
         if (x < 0.0)
         {
@@ -83,14 +83,14 @@ namespace firi
         }
     }
 
-    inline double costMVIE(void *data,
-                           const Eigen::VectorXd &x,
-                           Eigen::VectorXd &grad)
+    inline double costMVIE(void* data,
+        const Eigen::VectorXd& x,
+        Eigen::VectorXd& grad)
     {
-        const int64_t *pM = (int64_t *)data;
-        const double *pSmoothEps = (double *)(pM + 1);
-        const double *pPenaltyWt = pSmoothEps + 1;
-        const double *pA = pPenaltyWt + 1;
+        const int64_t* pM = (int64_t*)data;
+        const double* pSmoothEps = (double*)(pM + 1);
+        const double* pPenaltyWt = pSmoothEps + 1;
+        const double* pA = pPenaltyWt + 1;
 
         const int M = *pM;
         const double smoothEps = *pSmoothEps;
@@ -160,10 +160,10 @@ namespace firi
     // h0*x + h1*y + h2*z + h3 <= 0
     // R, p, r are ALWAYS taken as the initial guess
     // R is also assumed to be a rotation matrix
-    inline bool maxVolInsEllipsoid(const Eigen::MatrixX4d &hPoly,
-                                   Eigen::Matrix3d &R,
-                                   Eigen::Vector3d &p,
-                                   Eigen::Vector3d &r)
+    inline bool maxVolInsEllipsoid(const Eigen::MatrixX4d& hPoly,
+        Eigen::Matrix3d& R,
+        Eigen::Vector3d& p,
+        Eigen::Vector3d& r)
     {
         // Find the deepest interior point
         const int M = hPoly.rows();
@@ -184,11 +184,11 @@ namespace firi
         const Eigen::Vector3d interior = xlp.head<3>();
 
         // Prepare the data for MVIE optimization
-        uint8_t *optData = new uint8_t[sizeof(int64_t) + (2 + 3 * M) * sizeof(double)];
-        int64_t *pM = (int64_t *)optData;
-        double *pSmoothEps = (double *)(pM + 1);
-        double *pPenaltyWt = pSmoothEps + 1;
-        double *pA = pPenaltyWt + 1;
+        uint8_t* optData = new uint8_t[sizeof(int64_t) + (2 + 3 * M) * sizeof(double)];
+        int64_t* pM = (int64_t*)optData;
+        double* pSmoothEps = (double*)(pM + 1);
+        double* pPenaltyWt = pSmoothEps + 1;
+        double* pA = pPenaltyWt + 1;
 
         *pM = M;
         Eigen::Map<Eigen::MatrixX3d> A(pA, M, 3);
@@ -219,12 +219,12 @@ namespace firi
         *pPenaltyWt = 1.0e+3;
 
         int ret = lbfgs::lbfgs_optimize(x,
-                                        minCost,
-                                        &costMVIE,
-                                        nullptr,
-                                        nullptr,
-                                        optData,
-                                        paramsMVIE);
+            minCost,
+            &costMVIE,
+            nullptr,
+            nullptr,
+            optData,
+            paramsMVIE);
 
         if (ret < 0)
         {
@@ -264,13 +264,13 @@ namespace firi
         return ret >= 0;
     }
 
-    inline bool firi(const Eigen::MatrixX4d &bd,
-                     const Eigen::Matrix3Xd &pc,
-                     const Eigen::Vector3d &a,
-                     const Eigen::Vector3d &b,
-                     Eigen::MatrixX4d &hPoly,
-                     const int iterations = 4,
-                     const double epsilon = 1.0e-6)
+    inline bool firi(const Eigen::MatrixX4d& bd,
+        const Eigen::Matrix3Xd& pc,
+        const Eigen::Vector3d& a,
+        const Eigen::Vector3d& b,
+        Eigen::MatrixX4d& hPoly,
+        const int iterations = 4,
+        const double epsilon = 1.0e-6)
     {
         const Eigen::Vector4d ah(a(0), a(1), a(2), 1.0);
         const Eigen::Vector4d bh(b(0), b(1), b(2), 1.0);

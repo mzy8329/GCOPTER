@@ -1,5 +1,16 @@
 # GCOPTER
 
+！！！！！！！！！！！！
+这个分支用于完成stdf
+
+添加功能：
+    1. todo 将地图导出为sdf
+    2. todo 将minco调用地图的函数改为neural sdf
+！！！！！！！！！！！！
+
+以下为原文
+----------------------------------------------------
+
 __GCOPTER__ is an efficient and versatile multicopter trajectory optimizer built upon a novel sparse trajectory representation named [__MINCO__](https://arxiv.org/pdf/2103.00190.pdf). __User-defined state-input constraints__ for dynamics involving [__nonlinear drag effects__](https://github.com/ZJU-FAST-Lab/GCOPTER/blob/main/misc/flatness.pdf) are supported.
 
 ## Updates

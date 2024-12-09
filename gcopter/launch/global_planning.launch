@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
 
-   <node name="rviz" pkg="rviz" type="rviz" output="screen"
+  <node name="rviz" pkg="rviz" type="rviz" output="screen"
     args="-d $(find gcopter)/config/global_planning.rviz"> 
   </node>
   
@@ -10,7 +10,7 @@
   </node>
 
   <node pkg="mockamap" type="mockamap_node" name="mockamap_node" output="screen">
-  <param name="seed" type="int" value="1024"/>
+  <param name="seed" type="int" value="8329"/>
   <param name="update_freq" type="double" value="1.0"/>
   <param name="resolution" type="double" value="0.25"/>
   <param name="x_length" type="int" value="50"/>

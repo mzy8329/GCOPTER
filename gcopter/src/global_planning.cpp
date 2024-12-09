@@ -20,6 +20,35 @@
 #include <chrono>
 #include <random>
 
+#include <trajectory_msgs/JointTrajectory.h>
+
+ros::Publisher traj_pub;
+void pubTraj(const Trajectory<5>& _traj)
+{
+    trajectory_msgs::JointTrajectory traj;
+
+    trajectory_msgs::JointTrajectoryPoint pt;
+    double T = 0.1;
+    for (double t = 0; t < _traj.getTotalDuration(); t += T)
+    {
+        pt.time_from_start = ros::Duration(t);
+        Eigen::Vector3d pos = _traj.getPos(t);
+        Eigen::Vector3d vel = _traj.getVel(t);
+        Eigen::Vector3d acc = _traj.getAcc(t);
+
+        for (int i = 0; i < 3; i++)
+        {
+            pt.positions.push_back(pos[i]);
+            pt.velocities.push_back(vel[i]);
+            pt.accelerations.push_back(acc[i]);
+        }
+        traj.points.push_back(pt);
+    }
+    traj_pub.publish(traj);
+    return;
+}
+
+
 struct Config
 {
     std::string mapTopic;
@@ -110,6 +139,8 @@ public:
 
         targetSub = nh.subscribe(config.targetTopic, 1, &GlobalPlanner::targetCallBack, this,
             ros::TransportHints().tcpNoDelay());
+
+        traj_pub = nh.advertise<trajectory_msgs::JointTrajectory>("/gcopter/traj", 10);
     }
 
     inline void mapCallBack(const sensor_msgs::PointCloud2::ConstPtr& msg)
@@ -228,6 +259,7 @@ public:
                 {
                     trajStamp = ros::Time::now().toSec();
                     visualizer.visualize(traj, route);
+                    pubTraj(traj);
                 }
             }
         }

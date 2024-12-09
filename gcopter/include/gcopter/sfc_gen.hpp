@@ -169,6 +169,7 @@ namespace sfc_gen
                     valid_pc.emplace_back(p);
                 }
             }
+            // 把考虑的表面障碍点映射为3*v_pc.size列的矩阵pc
             Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> pc(valid_pc[0].data(), 3, valid_pc.size());
 
             firi::firi(bd, pc, a, b, hp);

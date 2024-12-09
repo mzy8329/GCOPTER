@@ -41,7 +41,7 @@ public:
     ros::Publisher bdrPub;
 
 public:
-    Visualizer(ros::NodeHandle &nh_)
+    Visualizer(ros::NodeHandle& nh_)
         : nh(nh_)
     {
         routePub = nh.advertise<visualization_msgs::Marker>("/visualizer/route", 10);
@@ -58,8 +58,8 @@ public:
 
     // Visualize the trajectory and its front-end path
     template <int D>
-    inline void visualize(const Trajectory<D> &traj,
-                          const std::vector<Eigen::Vector3d> &route)
+    inline void visualize(const Trajectory<D>& traj,
+        const std::vector<Eigen::Vector3d>& route)
     {
         visualization_msgs::Marker routeMarker, wayPointsMarker, trajMarker;
 
@@ -146,11 +146,11 @@ public:
             for (double t = T; t < traj.getTotalDuration(); t += T)
             {
                 geometry_msgs::Point point;
-                Eigen::Vector3d X = traj.getPos(t);
                 point.x = lastX(0);
                 point.y = lastX(1);
                 point.z = lastX(2);
                 trajMarker.points.push_back(point);
+                Eigen::Vector3d X = traj.getPos(t);
                 point.x = X(0);
                 point.y = X(1);
                 point.z = X(2);
@@ -162,7 +162,7 @@ public:
     }
 
     // Visualize some polytopes in H-representation
-    inline void visualizePolytope(const std::vector<Eigen::MatrixX4d> &hPolys)
+    inline void visualizePolytope(const std::vector<Eigen::MatrixX4d>& hPolys)
     {
 
         // Due to the fact that H-representation cannot be directly visualized
@@ -177,7 +177,7 @@ public:
 
             quickhull::QuickHull<double> tinyQH;
             const auto polyHull = tinyQH.getConvexHull(vPoly.data(), vPoly.cols(), false, true);
-            const auto &idxBuffer = polyHull.getIndexBuffer();
+            const auto& idxBuffer = polyHull.getIndexBuffer();
             int hNum = idxBuffer.size() / 3;
 
             curTris.resize(3, hNum * 3);
@@ -251,8 +251,8 @@ public:
     }
 
     // Visualize all spheres with centers sphs and the same radius
-    inline void visualizeSphere(const Eigen::Vector3d &center,
-                                const double &radius)
+    inline void visualizeSphere(const Eigen::Vector3d& center,
+        const double& radius)
     {
         visualization_msgs::Marker sphereMarkers, sphereDeleter;
 
@@ -284,9 +284,9 @@ public:
         spherePub.publish(sphereMarkers);
     }
 
-    inline void visualizeStartGoal(const Eigen::Vector3d &center,
-                                   const double &radius,
-                                   const int sg)
+    inline void visualizeStartGoal(const Eigen::Vector3d& center,
+        const double& radius,
+        const int sg)
     {
         visualization_msgs::Marker sphereMarkers, sphereDeleter;
 
