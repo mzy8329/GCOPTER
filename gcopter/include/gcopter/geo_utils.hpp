@@ -40,8 +40,8 @@ namespace geo_utils
 
     // Each row of hPoly is defined by h0, h1, h2, h3 as
     // h0*x + h1*y + h2*z + h3 <= 0
-    inline bool findInterior(const Eigen::MatrixX4d &hPoly,
-                             Eigen::Vector3d &interior)
+    inline bool findInterior(const Eigen::MatrixX4d& hPoly,
+        Eigen::Vector3d& interior)
     {
         const int m = hPoly.rows();
 
@@ -55,15 +55,16 @@ namespace geo_utils
         c.setZero();
         c(3) = -1.0;
 
+        // 这里相当于把约束问题转化为Ax+b <= z, 最小化z， 如果z<0, 则原约束问题也满足，且找到的x离各个面都最远，也就是最内点
         const double minmaxsd = sdlp::linprog<4>(c, A, b, x);
         interior = x.head<3>();
 
         return minmaxsd < 0.0 && !std::isinf(minmaxsd);
     }
 
-    inline bool overlap(const Eigen::MatrixX4d &hPoly0,
-                        const Eigen::MatrixX4d &hPoly1,
-                        const double eps = 1.0e-6)
+    inline bool overlap(const Eigen::MatrixX4d& hPoly0,
+        const Eigen::MatrixX4d& hPoly1,
+        const double eps = 1.0e-6)
 
     {
         const int m = hPoly0.rows();
@@ -86,20 +87,20 @@ namespace geo_utils
 
     struct filterLess
     {
-        inline bool operator()(const Eigen::Vector3d &l,
-                               const Eigen::Vector3d &r)
+        inline bool operator()(const Eigen::Vector3d& l,
+            const Eigen::Vector3d& r)
         {
             return l(0) < r(0) ||
-                   (l(0) == r(0) &&
+                (l(0) == r(0) &&
                     (l(1) < r(1) ||
-                     (l(1) == r(1) &&
-                      l(2) < r(2))));
+                        (l(1) == r(1) &&
+                            l(2) < r(2))));
         }
     };
 
-    inline void filterVs(const Eigen::Matrix3Xd &rV,
-                         const double &epsilon,
-                         Eigen::Matrix3Xd &fV)
+    inline void filterVs(const Eigen::Matrix3Xd& rV,
+        const double& epsilon,
+        Eigen::Matrix3Xd& fV)
     {
         const double mag = std::max(fabs(rV.maxCoeff()), fabs(rV.minCoeff()));
         const double res = mag * std::max(fabs(epsilon) / mag, DBL_EPSILON);
@@ -124,20 +125,24 @@ namespace geo_utils
     // Each row of hPoly is defined by h0, h1, h2, h3 as
     // h0*x + h1*y + h2*z + h3 <= 0
     // proposed epsilon is 1.0e-6
-    inline void enumerateVs(const Eigen::MatrixX4d &hPoly,
-                            const Eigen::Vector3d &inner,
-                            Eigen::Matrix3Xd &vPoly,
-                            const double epsilon = 1.0e-6)
+    inline void enumerateVs(const Eigen::MatrixX4d& hPoly,
+        const Eigen::Vector3d& inner,
+        Eigen::Matrix3Xd& vPoly,
+        const double epsilon = 1.0e-6)
     {
+        // AI + B = D < 0, 因此令新的 (AI + B)/(-D) < 0, 即将坐标系原点平移到inner，使得约束平面的系数就是其法向量与平面的交点坐标
         const Eigen::VectorXd b = -hPoly.rightCols<1>() - hPoly.leftCols<3>() * inner;
         const Eigen::Matrix<double, 3, -1, Eigen::ColMajor> A =
             (hPoly.leftCols<3>().array().colwise() / b.array()).transpose();
 
+        // 获得飞行走廊凸包的顶点
         quickhull::QuickHull<double> qh;
         const double qhullEps = std::min(epsilon, quickhull::defaultEps<double>());
         // CCW is false because the normal in quickhull towards interior
         const auto cvxHull = qh.getConvexHull(A.data(), A.cols(), false, true, qhullEps);
-        const auto &idBuffer = cvxHull.getIndexBuffer();
+        const auto& idBuffer = cvxHull.getIndexBuffer();
+
+        // 把处于同一个三角形上的三个点变成一个点，用于减少点的数量
         const int hNum = idBuffer.size() / 3;
         Eigen::Matrix3Xd rV(3, hNum);
         Eigen::Vector3d normal, point, edge0, edge1;
@@ -147,9 +152,13 @@ namespace geo_utils
             edge0 = point - A.col(idBuffer[3 * i]);
             edge1 = A.col(idBuffer[3 * i + 2]) - point;
             normal = edge0.cross(edge1); //cross in CW gives an outter normal
-            rV.col(i) = normal / normal.dot(point);
+            rV.col(i) = normal / normal.dot(point);         // 归一化
         }
+
+        // 去掉冗余的向量（各方向差值小于eps）
         filterVs(rV, epsilon, vPoly);
+
+        // 再将vH平移会原坐标系
         vPoly = (vPoly.array().colwise() + inner.array()).eval();
         return;
     }
@@ -157,12 +166,12 @@ namespace geo_utils
     // Each row of hPoly is defined by h0, h1, h2, h3 as
     // h0*x + h1*y + h2*z + h3 <= 0
     // proposed epsilon is 1.0e-6
-    inline bool enumerateVs(const Eigen::MatrixX4d &hPoly,
-                            Eigen::Matrix3Xd &vPoly,
-                            const double epsilon = 1.0e-6)
+    inline bool enumerateVs(const Eigen::MatrixX4d& hPoly,
+        Eigen::Matrix3Xd& vPoly,
+        const double epsilon = 1.0e-6)
     {
         Eigen::Vector3d inner;
-        if (findInterior(hPoly, inner))
+        if (findInterior(hPoly, inner))                     // 找到多面体内点
         {
             enumerateVs(hPoly, inner, vPoly, epsilon);
             return true;

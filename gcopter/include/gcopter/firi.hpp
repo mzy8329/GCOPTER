@@ -275,6 +275,7 @@ namespace firi
         const Eigen::Vector4d ah(a(0), a(1), a(2), 1.0);
         const Eigen::Vector4d bh(b(0), b(1), b(2), 1.0);
 
+        // 目标点在边界约束外
         if ((bd * ah).maxCoeff() > 0.0 ||
             (bd * bh).maxCoeff() > 0.0)
         {
@@ -292,32 +293,36 @@ namespace firi
 
         for (int loop = 0; loop < iterations; ++loop)
         {
-            const Eigen::Matrix3d forward = r.cwiseInverse().asDiagonal() * R.transpose();
-            const Eigen::Matrix3d backward = R * r.asDiagonal();
-            const Eigen::MatrixX3d forwardB = bd.leftCols<3>() * backward;
-            const Eigen::VectorXd forwardD = bd.rightCols<1>() + bd.leftCols<3>() * p;
-            const Eigen::Matrix3Xd forwardPC = forward * (pc.colwise() - p);
-            const Eigen::Vector3d fwd_a = forward * (a - p);
-            const Eigen::Vector3d fwd_b = forward * (b - p);
+            // 将所有的约束平移到以p为原点的坐标系下，约束: Ax+D<0 => A(Rx+p)+D<0
+            const Eigen::Matrix3d forward = r.cwiseInverse().asDiagonal() * R.transpose();  // 缩放旋转矩阵
+            const Eigen::Matrix3d backward = R * r.asDiagonal();                            // 放大旋转矩阵
+            const Eigen::MatrixX3d forwardB = bd.leftCols<3>() * backward;                  // 旋转约束空间
+            const Eigen::VectorXd forwardD = bd.rightCols<1>() + bd.leftCols<3>() * p;      // 平移约束空间的D到以p为原点的空间
+            const Eigen::Matrix3Xd forwardPC = forward * (pc.colwise() - p);                // 把障碍物点云平移到以p为原点的空间再旋转
+            const Eigen::Vector3d fwd_a = forward * (a - p);                                // 同上，转a
+            const Eigen::Vector3d fwd_b = forward * (b - p);                                // 同上，转b
 
-            const Eigen::VectorXd distDs = forwardD.cwiseAbs().cwiseQuotient(forwardB.rowwise().norm());
-            Eigen::MatrixX4d tangents(N, 4);
-            Eigen::VectorXd distRs(N);
+            const Eigen::VectorXd distDs = forwardD.cwiseAbs().cwiseQuotient(forwardB.rowwise().norm()); // 求约束平面到原点(p)的距离
+            Eigen::MatrixX4d tangents(N, 4);            // 记录每个障碍物点与原点连线的切平面
+            Eigen::VectorXd distRs(N);                  // 记录每个障碍物点离原点(p)的距离
 
+            // 这个for是为了障碍物点记录为切平面的法向量
             for (int i = 0; i < N; i++)
             {
-                distRs(i) = forwardPC.col(i).norm();
-                tangents(i, 3) = -distRs(i);
-                tangents.block<1, 3>(i, 0) = forwardPC.col(i).transpose() / distRs(i);
-                if (tangents.block<1, 3>(i, 0).dot(fwd_a) + tangents(i, 3) > epsilon)
+                distRs(i) = forwardPC.col(i).norm();                                                            // 点i离原点的距离，也是归一化量
+                tangents(i, 3) = -distRs(i);                                                                    //
+                tangents.block<1, 3>(i, 0) = forwardPC.col(i).transpose() / distRs(i);                          // 归一化点i和原点的连线
+
+                // 这两个if的作用是防止生成的平面和a，b方向垂直
+                if (tangents.block<1, 3>(i, 0).dot(fwd_a) + tangents(i, 3) > epsilon)                           // i和a’方向接近， |a||b|cos - |b| > 0, cos > 1/|a|
                 {
-                    const Eigen::Vector3d delta = forwardPC.col(i) - fwd_a;
-                    tangents.block<1, 3>(i, 0) = fwd_a - (delta.dot(fwd_a) / delta.squaredNorm()) * delta;
-                    distRs(i) = tangents.block<1, 3>(i, 0).norm();
+                    const Eigen::Vector3d delta = forwardPC.col(i) - fwd_a;                                     // a' -> i 的向量
+                    tangents.block<1, 3>(i, 0) = fwd_a - (delta.dot(fwd_a) / delta.squaredNorm()) * delta;      // 得到delta的切线，这里delta.squaredNorm()的作用有两个：1.归一化delta;2.得到a'与delta点乘后的比例
+                    distRs(i) = tangents.block<1, 3>(i, 0).norm();                                              // 得到切线长度
                     tangents(i, 3) = -distRs(i);
-                    tangents.block<1, 3>(i, 0) /= distRs(i);
+                    tangents.block<1, 3>(i, 0) /= distRs(i);                                                    // 归一化
                 }
-                if (tangents.block<1, 3>(i, 0).dot(fwd_b) + tangents(i, 3) > epsilon)
+                if (tangents.block<1, 3>(i, 0).dot(fwd_b) + tangents(i, 3) > epsilon)                           // i和b‘方向接近
                 {
                     const Eigen::Vector3d delta = forwardPC.col(i) - fwd_b;
                     tangents.block<1, 3>(i, 0) = fwd_b - (delta.dot(fwd_b) / delta.squaredNorm()) * delta;
@@ -325,6 +330,8 @@ namespace firi
                     tangents(i, 3) = -distRs(i);
                     tangents.block<1, 3>(i, 0) /= distRs(i);
                 }
+
+                // 如果前两步仍得不到想要的结果，就取交叉积。只考虑a是因为a是旧一些的点，基本不可能出现垂直的障碍物。
                 if (tangents.block<1, 3>(i, 0).dot(fwd_a) + tangents(i, 3) > epsilon)
                 {
                     tangents.block<1, 3>(i, 0) = (fwd_a - forwardPC.col(i)).cross(fwd_b - forwardPC.col(i)).normalized();
@@ -348,6 +355,7 @@ namespace firi
             }
             for (int i = 0; !completed && i < (M + N); ++i)
             {
+                // 记录最近的（约束平面/障碍物平面）
                 if (minSqrD < minSqrR)
                 {
                     forwardH.block<1, 3>(nH, 0) = forwardB.row(bdMinId);
@@ -362,6 +370,7 @@ namespace firi
 
                 completed = true;
                 minSqrD = INFINITY;
+                // 要访问所有的未访问过的约束平面，获得距离原点最近的约束平面
                 for (int j = 0; j < M; ++j)
                 {
                     if (bdFlags(j))
@@ -374,6 +383,8 @@ namespace firi
                         }
                     }
                 }
+
+                // 访问所有未访问过的障碍物点，取其中距离原点最近的
                 minSqrR = INFINITY;
                 for (int j = 0; j < N; ++j)
                 {
@@ -397,11 +408,12 @@ namespace firi
                 ++nH;
             }
 
+            // 获取所有的平面约束，把约束转到原坐标系中
             hPoly.resize(nH, 4);
             for (int i = 0; i < nH; ++i)
             {
                 hPoly.block<1, 3>(i, 0) = forwardH.block<1, 3>(i, 0) * forward;
-                hPoly(i, 3) = forwardH(i, 3) - hPoly.block<1, 3>(i, 0).dot(p);
+                hPoly(i, 3) = forwardH(i, 3) - hPoly.block<1, 3>(i, 0).dot(p);          // （D+Rp） - Rp = D
             }
 
             if (loop == iterations - 1)
@@ -409,6 +421,7 @@ namespace firi
                 break;
             }
 
+            // 求多面体中的最大内接椭球，并更新R，p，r
             maxVolInsEllipsoid(hPoly, R, p, r);
         }
 

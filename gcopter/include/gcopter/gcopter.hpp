@@ -100,6 +100,11 @@ namespace gcopter
             return;
         }
 
+
+
+        // T的微分同胚映射
+        // tau = {sqrt(2T-1)-1   if T > 1
+        //       {sqrt(1-2/T -1) if T < 1
         template <typename EIGENVEC>
         static inline void backwardT(const Eigen::VectorXd& T,
             EIGENVEC& tau)
@@ -593,6 +598,8 @@ namespace gcopter
             Eigen::Matrix3Xd& path)
         {
             const int overlaps = vPolys.size() / 2;
+
+            // 通过多面体的顶点数量来为多面体顶点分配权重，平衡多面体的约束
             Eigen::VectorXi vSizes(overlaps);
             for (int i = 0; i < overlaps; i++)
             {
@@ -616,6 +623,7 @@ namespace gcopter
             shortest_path_params.delta = 1.0e-3;
             shortest_path_params.g_epsilon = 1.0e-5;
 
+            // 求解优化问题，xi即为飞行走廊张成空间的权重系数
             lbfgs::lbfgs_optimize(xi,
                 minDistance,
                 &GCOPTER_PolytopeSFC::costDistance,
@@ -653,16 +661,19 @@ namespace gcopter
             PolyhedronV curIV, curIOB;
             for (int i = 0; i < sizeCorridor; i++)
             {
-                if (!geo_utils::enumerateVs(hPs[i], curIV))
+                // 从凸多面体获取其凸包顶点
+                if (!geo_utils::enumerateVs(hPs[i], curIV))                                     // 
                 {
                     return false;
                 }
+                // 将第i个凸包的（n+1）顶点转换为V0 + n个向量张成的空间
                 nv = curIV.cols();
                 curIOB.resize(3, nv);
                 curIOB.col(0) = curIV.col(0);
                 curIOB.rightCols(nv - 1) = curIV.rightCols(nv - 1).colwise() - curIV.col(0);
                 vPs.push_back(curIOB);
 
+                // 获得第i和（i+1）个飞行走廊内最大的凸包，并获得其顶点
                 curIH.resize(hPs[i].rows() + hPs[i + 1].rows(), 4);
                 curIH.topRows(hPs[i].rows()) = hPs[i];
                 curIH.bottomRows(hPs[i + 1].rows()) = hPs[i + 1];
@@ -670,13 +681,14 @@ namespace gcopter
                 {
                     return false;
                 }
+                // 将第i和（i+1）个凸包的（n+1）顶点转换为V0 + n个向量张成的空间
                 nv = curIV.cols();
                 curIOB.resize(3, nv);
                 curIOB.col(0) = curIV.col(0);
                 curIOB.rightCols(nv - 1) = curIV.rightCols(nv - 1).colwise() - curIV.col(0);
                 vPs.push_back(curIOB);
             }
-
+            // 同上，获得最后一个走廊的凸包
             if (!geo_utils::enumerateVs(hPs.back(), curIV))
             {
                 return false;
@@ -701,6 +713,7 @@ namespace gcopter
             innerPoints.resize(3, sizeN - 1);
             timeAlloc.resize(sizeN);
 
+            // 预设置每段轨迹的花费时间和路点
             Eigen::Vector3d a, b, c;
             for (int i = 0, j = 0, k = 0, l; i < sizeM; i++)
             {
@@ -747,6 +760,8 @@ namespace gcopter
                     hPolytopes[i].leftCols<3>().rowwise().norm();
                 hPolytopes[i].array().colwise() /= norms;
             }
+
+            // 从第i个，（i+（i+1））飞行走廊获得凸包顶点，再将其转到(n-1)的坐标系下
             if (!processCorridor(hPolytopes, vPolytopes))
             {
                 return false;
@@ -760,13 +775,16 @@ namespace gcopter
             physicalPm = physicalParams;
             allocSpeed = magnitudeBd(0) * 3.0;
 
+            // 通过飞行走廊求出(最优？)的路点构成的path
             getShortestPath(headPVA.col(0), tailPVA.col(0),
                 vPolytopes, smoothEps, shortPath);
-            const Eigen::Matrix3Xd deltas = shortPath.rightCols(polyN) - shortPath.leftCols(polyN);
-            pieceIdx = (deltas.colwise().norm() / lengthPerPiece).cast<int>().transpose();
-            pieceIdx.array() += 1;
-            pieceN = pieceIdx.sum();
 
+            const Eigen::Matrix3Xd deltas = shortPath.rightCols(polyN) - shortPath.leftCols(polyN); // 获取每段path的向量
+            pieceIdx = (deltas.colwise().norm() / lengthPerPiece).cast<int>().transpose();          // 将每段path的长度的映射为n倍的lengthPerpiece
+            pieceIdx.array() += 1;                                                                  // 相当与向上取整，保证每段path的n>0
+            pieceN = pieceIdx.sum();                                                                // 求总权重
+
+            // 把每段path分成（n+1）份
             temporalDim = pieceN;
             spatialDim = 0;
             vPolyIdx.resize(pieceN - 1);
@@ -776,17 +794,17 @@ namespace gcopter
                 k = pieceIdx(i);
                 for (int l = 0; l < k; l++, j++)
                 {
-                    if (l < k - 1)
+                    if (l < k - 1)                                                                  // 如果不是每段path的最后一段
                     {
-                        vPolyIdx(j) = 2 * i;
-                        spatialDim += vPolytopes[2 * i].cols();
+                        vPolyIdx(j) = 2 * i;                                                        // 记录该段piece的凸包顶点index
+                        spatialDim += vPolytopes[2 * i].cols();                                     // 累加每段piece的图包顶点的数量
                     }
-                    else if (i < polyN - 1)
+                    else if (i < polyN - 1)                                                         // 如果不是最后一个path的最后一段
                     {
-                        vPolyIdx(j) = 2 * i + 1;
-                        spatialDim += vPolytopes[2 * i + 1].cols();
+                        vPolyIdx(j) = 2 * i + 1;                                                    // 其凸包顶点为两个走廊交集的顶点
+                        spatialDim += vPolytopes[2 * i + 1].cols();                                 // 同上
                     }
-                    hPolyIdx(j) = i;
+                    hPolyIdx(j) = i;                                                                // 记录每段piece属于哪段path
                 }
             }
 
@@ -813,9 +831,9 @@ namespace gcopter
             Eigen::Map<Eigen::VectorXd> tau(x.data(), temporalDim);
             Eigen::Map<Eigen::VectorXd> xi(x.data() + temporalDim, spatialDim);
 
-            setInitial(shortPath, allocSpeed, pieceIdx, points, times);
-            backwardT(times, tau);
-            backwardP(points, vPolyIdx, vPolytopes, xi);
+            setInitial(shortPath, allocSpeed, pieceIdx, points, times);             // 初始化times和points， times为每一小段的预设时间，points为每一小段的终点
+            backwardT(times, tau);                                                  // T -> \tau 的微分同胚映射
+            backwardP(points, vPolyIdx, vPolytopes, xi);                            // 初始化xi，通过每一小段轨迹的飞行走廊约束来优化每一小段的路点
 
             double minCostFunctional;
             lbfgs_params.mem_size = 256;
@@ -824,6 +842,7 @@ namespace gcopter
             lbfgs_params.g_epsilon = 0.0;
             lbfgs_params.delta = relCostTol;
 
+            // 同时优化每一小段的时间和路点
             int ret = lbfgs::lbfgs_optimize(x,
                 minCostFunctional,
                 &GCOPTER_PolytopeSFC::costFunctional,
@@ -834,10 +853,10 @@ namespace gcopter
 
             if (ret >= 0)
             {
-                forwardT(tau, times);
-                forwardP(xi, vPolyIdx, vPolytopes, points);
-                minco.setParameters(points, times);
-                minco.getTrajectory(traj);
+                forwardT(tau, times);                        // \tau -> T
+                forwardP(xi, vPolyIdx, vPolytopes, points);  // 球坐标系下的路点 -> 欧式空间
+                minco.setParameters(points, times);          // AC=b, 会把时间分配和路点带入进去，解出C并记录在b中
+                minco.getTrajectory(traj);                   // 获取每段轨迹的初始T和多项式系数
             }
             else
             {

@@ -172,11 +172,13 @@ namespace sfc_gen
             // 把考虑的表面障碍点映射为3*v_pc.size列的矩阵pc
             Eigen::Map<const Eigen::Matrix<double, 3, -1, Eigen::ColMajor>> pc(valid_pc[0].data(), 3, valid_pc.size());
 
+            // 通过边界框和内部的障碍物点转化为一个多面体逼近，firi:Fast Iterative Region Inference
             firi::firi(bd, pc, a, b, hp);
 
             if (hpolys.size() != 0)
             {
                 const Eigen::Vector4d ah(a(0), a(1), a(2), 1.0);
+                // 判断a点是否同时处于两个多面体中，如果不在，为a单独加一个多面体
                 if (3 <= ((hp * ah).array() > -eps).cast<int>().sum() +
                     ((hpolys.back() * ah).array() > -eps).cast<int>().sum())
                 {

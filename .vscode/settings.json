@@ -1,9 +1,12 @@
 {
     "cSpell.words": [
+        "BFGS",
         "Eigen",
         "gcopter",
         "Intervs",
+        "minco",
         "Polytope",
+        "Polytopes",
         "traj"
     ],
     "files.associations": {
