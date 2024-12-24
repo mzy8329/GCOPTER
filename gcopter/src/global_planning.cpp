@@ -27,10 +27,11 @@ void pubTraj(const Trajectory<5>& _traj)
 {
     trajectory_msgs::JointTrajectory traj;
 
-    trajectory_msgs::JointTrajectoryPoint pt;
+
     double T = 0.1;
     for (double t = 0; t < _traj.getTotalDuration(); t += T)
     {
+        trajectory_msgs::JointTrajectoryPoint pt;
         pt.time_from_start = ros::Duration(t);
         Eigen::Vector3d pos = _traj.getPos(t);
         Eigen::Vector3d vel = _traj.getVel(t);
